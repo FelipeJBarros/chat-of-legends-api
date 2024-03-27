@@ -6,4 +6,15 @@ public record Champion (
     String role,
     String lore,
     String imageUrl
-) { }
+) {
+    public String generateQuestionContext(String question) {
+        return """
+               Pergunta: %s
+               Nome do campeão: %s
+               Função: %s
+               Lore (História): %s
+               Imagem: %s
+               """
+                .formatted(question, this.name, this.role, this.lore, this.imageUrl);
+    }
+}
