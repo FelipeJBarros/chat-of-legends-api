@@ -1,4 +1,4 @@
-package com.flpbrrs.lca.domain.model;
+package com.flpbrrs.lca.domain.models;
 
 public record Champion (
     Long id,
