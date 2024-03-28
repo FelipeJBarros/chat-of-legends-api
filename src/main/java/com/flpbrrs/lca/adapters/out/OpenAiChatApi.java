@@ -1,32 +1,53 @@
 package com.flpbrrs.lca.adapters.out;
 
 import com.flpbrrs.lca.domain.ports.GenerativeAIApi;
+import feign.FeignException;
+import feign.RequestInterceptor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.context.annotation.Bean;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import java.util.List;
 
-@FeignClient(name = "openAiChatApi", url = "${openai.base-url}")
+@ConditionalOnProperty(name = "generative-ai.provider", havingValue = "GEMINI", matchIfMissing = true)
+@FeignClient(name = "geminiApi", url = "${gemini.base-url}", configuration = OpenAiChatApi.Config.class)
 public interface OpenAiChatApi extends GenerativeAIApi {
 
-    @PostMapping("/v1/chat/completions")
-    OpenAIChatCompletionResponse chatCompletion(OpenAIChatCompletionRequest request);
+    @PostMapping("/v1beta/models/gemini-pro:generateContent")
+    GoogleGeminiResp textOnlyInput(GoogleGeminiReq req);
 
     @Override
     default String generateContent(String objective, String context) {
-        String model = "gpt-3.5-turbo";
-        List<Message> messages = List.of(
-                new Message("system", objective),
-                new Message("user", context)
-        );
-        OpenAIChatCompletionRequest request = new OpenAIChatCompletionRequest(model, messages);
+        String prompt = """
+                %s
+                %s
+                """.formatted(objective, context);
 
-        OpenAIChatCompletionResponse response = chatCompletion(request);
-        return response.choices.getFirst().message().content;
+        GoogleGeminiReq req = new GoogleGeminiReq(
+                List.of(new Content(List.of(new Part(prompt))))
+        );
+        try {
+            GoogleGeminiResp resp = textOnlyInput(req);
+            return resp.candidates().get(0).content().parts().get(0).text();
+        } catch (FeignException httpErrors) {
+            return "Deu ruim! Erro de comunicação com a API do Google Gemini.";
+        } catch (Exception unexpectedError) {
+            return "Deu mais ruim ainda! O retorno da API do Google Gemini não contem os dados esperados.";
+        }
     }
 
-    record OpenAIChatCompletionRequest(String model, List<Message> messages) {};
-    record OpenAIChatCompletionResponse(List<Choice> choices) {};
-    record Message(String role, String content) {};
-    record Choice(Message message) {};
+    record GoogleGeminiReq(List<Content> contents) { }
+    record Content(List<Part> parts) { }
+    record Part(String text) { }
+    record GoogleGeminiResp(List<Candidate> candidates) { }
+    record Candidate(Content content) { }
+
+    class Config {
+        @Bean
+        public RequestInterceptor apiKeyRequestInterceptor(@Value("${gemini.api-key}") String apiKey) {
+            return requestTemplate -> requestTemplate.query("key", apiKey);
+        }
+    }
 }
