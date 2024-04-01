@@ -32,9 +32,9 @@ public interface OpenAiChatApi extends GenerativeAIApi {
             GoogleGeminiResp resp = textOnlyInput(req);
             return resp.candidates().get(0).content().parts().get(0).text();
         } catch (FeignException httpErrors) {
-            return "Deu ruim! Erro de comunicação com a API do Google Gemini.";
+            return "Não estou conseguindo responder agora, tente novamente mais tarde.";
         } catch (Exception unexpectedError) {
-            return "Deu mais ruim ainda! O retorno da API do Google Gemini não contem os dados esperados.";
+            return "Algo está errado aqui, pergunte outra coisa ou volte mais tarde";
         }
     }
 
